@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 10px;
+        }
+        #chatContainer {
+            max-width: 600px;
+            margin: auto;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        #inputMessage {
+            width: calc(100% - 20px);
+            padding: 10px;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+        }
+        select {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chatContainer">
+        <h1>WebSocket Chat</h1>
+        <div id="messages"></div>
+        <div id="controls">
+            <textarea id="inputMessage" placeholder="Type your message here..."></textarea>
+            <button onclick="sendMessage()">Send</button>
+        </div>
+        <h3>Select a recipient:</h3>
+        <select id="recipientId"></select>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8080');
+        let userId = prompt('Enter your user ID:');
+        const recipientSelect = document.getElementById('recipientId');
+
+        // On WebSocket connection
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'setUserId', userId }));
+        };
+
+        // Listen for incoming WebSocket messages
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            switch (data.type) {
+                case 'welcome':
+                    console.log(data.message);
+                    break;
+
+                case 'updateUserList':
+                    updateRecipientList(data.userList);
+                    break;
+
+                case 'message':
+                    appendMessage(`From ${data.fromUserId}: ${data.message}`);
+                    break;
+
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        };
+
+        // Update recipient list in the dropdown
+        function updateRecipientList(userList) {
+            recipientSelect.innerHTML = '<option value="">Broadcast</option>';
+            userList.forEach((id) => {
+                if (id !== userId) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = id;
+                    recipientSelect.appendChild(option);
+                }
+            });
+        }
+
+        // Send a message to the selected recipient or broadcast
+        function sendMessage() {
+            const message = document.getElementById('inputMessage').value;
+            const toUserId = recipientSelect.value || null;
+
+            if (message.trim()) {
+                ws.send(
+                    JSON.stringify({
+                        type: 'message',
+                        message,
+                        toUserId,
+                    })
+                );
+                appendMessage(`You: ${message}`);
+                document.getElementById('inputMessage').value = ''; // Clear input
+            }
+        }
+
+        // Append a message to the chat UI
+        function appendMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>${message}</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll
+        }
+    </script>
+</body>
+</html>
